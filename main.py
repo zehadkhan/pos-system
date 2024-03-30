@@ -3,7 +3,6 @@ from tkinter import messagebox
 import sqlite3
 import win32print
 import win32ui
-import win32print
 
 # Get default printer name
 default_printer = win32print.GetDefaultPrinter()
@@ -14,32 +13,6 @@ all_printers = win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL, None, 1)
 print("All Printers:")
 for printer in all_printers:
     print(printer[2])  # Printer name
-
-
-def create_invoice(units, total_cost, item_name):
-    try:
-        printer_name = "Microsoft Print to PDF"
-        hprinter = win32print.OpenPrinter(printer_name)
-        try:
-            hprinter.StartDoc("Invoice")
-            hprinter.StartPage()
-            dc = win32ui.CreateDC()
-            dc.CreatePrinterDC(printer_name)
-            dc.StartDoc("Invoice")
-            dc.StartPage()
-
-            dc.TextOut(100, 100, f"Item: {item_name}")
-            dc.TextOut(100, 120, f"Units Sold: {units}")
-            dc.TextOut(100, 140, f"Total Cost: {total_cost}")
-
-            dc.EndPage()
-            dc.EndDoc()
-        finally:
-            hprinter.EndPage()
-            hprinter.EndDoc()
-            hprinter.Close()
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to print invoice: {e}")
 
 
 class InventoryManagementSystem:
@@ -171,7 +144,41 @@ class InventoryManagementSystem:
         cursor.execute("INSERT INTO items (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
         self.conn.commit()
 
+    def create_invoice(units, total_cost, item_name):
+        try:
+            printer_name = "Microsoft Print to PDF"
+            hprinter = win32print.OpenPrinter(printer_name)
+            try:
+                hprinter = win32print.OpenPrinter(printer_name)
+                hprinter_data = {"pDatatype": "RAW"}
+                hprinter_handle = win32print.StartDocPrinter(hprinter, 1, ("Invoice", None, "RAW"))
+                win32print.StartPagePrinter(hprinter_handle)
+                dc = win32ui.CreateDC()
+                dc.CreatePrinterDC(printer_name)
+                dc.StartDoc("Invoice")
+                dc.StartPage()
+
+                dc.TextOut(100, 100, f"Item: {item_name}")
+                dc.TextOut(100, 120, f"Units Sold: {units}")
+                dc.TextOut(100, 140, f"Total Cost: {total_cost}")
+
+                dc.EndPage()
+                dc.EndDoc()
+                win32print.EndPagePrinter(hprinter_handle)
+                win32print.EndDocPrinter(hprinter_handle)
+                win32print.ClosePrinter(hprinter_handle)
+            finally:
+                win32print.ClosePrinter(hprinter)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to print invoice: {e}")
+
+
 # Initialize tkinter
+
 root = tk.Tk()
 app = InventoryManagementSystem(root)
-root.mainloop()
+
+try:
+    root.mainloop()
+except KeyboardInterrupt:
+    print("Program terminated by user.")
