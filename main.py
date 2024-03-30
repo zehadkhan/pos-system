@@ -2,16 +2,58 @@ import tkinter as tk
 from tkinter import messagebox
 import sqlite3
 import win32print
+import win32ui
+import win32print
+
+# Get default printer name
+default_printer = win32print.GetDefaultPrinter()
+print("Default Printer:", default_printer)
+
+# Get list of all printers
+all_printers = win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL, None, 1)
+print("All Printers:")
+for printer in all_printers:
+    print(printer[2])  # Printer name
+
+
+def create_invoice(units, total_cost, item_name):
+    try:
+        printer_name = "Microsoft Print to PDF"
+        hprinter = win32print.OpenPrinter(printer_name)
+        try:
+            hprinter.StartDoc("Invoice")
+            hprinter.StartPage()
+            dc = win32ui.CreateDC()
+            dc.CreatePrinterDC(printer_name)
+            dc.StartDoc("Invoice")
+            dc.StartPage()
+
+            dc.TextOut(100, 100, f"Item: {item_name}")
+            dc.TextOut(100, 120, f"Units Sold: {units}")
+            dc.TextOut(100, 140, f"Total Cost: {total_cost}")
+
+            dc.EndPage()
+            dc.EndDoc()
+        finally:
+            hprinter.EndPage()
+            hprinter.EndDoc()
+            hprinter.Close()
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to print invoice: {e}")
+
 
 class InventoryManagementSystem:
     def __init__(self, master):
+        self.name_label = None
         self.master = master
         master.title("Inventory Management System")
         self.create_widgets()
 
+        # Initialize database connection
         self.conn = sqlite3.connect("data.db")
         self.create_table()
 
+        # Refresh items list after initialization
         self.refresh_items_list()
 
     def create_table(self):
@@ -42,6 +84,7 @@ class InventoryManagementSystem:
         self.sale_units_entry = tk.Entry(self.master)
         self.make_sale_button = tk.Button(self.master, text="Make Sale", command=self.make_sale)
 
+        # Place widgets on the grid
         self.name_label.grid(row=0, column=0, sticky="e")
         self.name_entry.grid(row=0, column=1)
         self.price_label.grid(row=1, column=0, sticky="e")
@@ -108,6 +151,7 @@ class InventoryManagementSystem:
                     total_cost = units * row[1]
                     messagebox.showinfo("Success", f"Sale successful! Total cost: {total_cost}")
                     self.refresh_items_list()
+                    create_invoice(units, total_cost, row[2])
                 else:
                     messagebox.showerror("Error", "Insufficient stock!")
             except ValueError:
@@ -127,6 +171,7 @@ class InventoryManagementSystem:
         cursor.execute("INSERT INTO items (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
         self.conn.commit()
 
+# Initialize tkinter
 root = tk.Tk()
 app = InventoryManagementSystem(root)
 root.mainloop()
