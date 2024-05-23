@@ -1,19 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
 import sqlite3
-import win32print
-import win32ui
-
-# Get default printer name
-default_printer = win32print.GetDefaultPrinter()
-print("Default Printer:", default_printer)
-
-# Get list of all printers
-all_printers = win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL, None, 1)
-print("All Printers:")
-for printer in all_printers:
-    print(printer[2])  # Printer name
-
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 class InventoryManagementSystem:
     def __init__(self, master):
@@ -124,7 +113,9 @@ class InventoryManagementSystem:
                     total_cost = units * row[1]
                     messagebox.showinfo("Success", f"Sale successful! Total cost: {total_cost}")
                     self.refresh_items_list()
-                    create_invoice(units, total_cost, row[2])
+
+                    # Create invoice PDF
+                    self.create_invoice(units, total_cost, row[2])
                 else:
                     messagebox.showerror("Error", "Insufficient stock!")
             except ValueError:
@@ -144,37 +135,19 @@ class InventoryManagementSystem:
         cursor.execute("INSERT INTO items (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
         self.conn.commit()
 
-    def create_invoice(units, total_cost, item_name):
+    def create_invoice(self, units, total_cost, item_name):
         try:
-            printer_name = "Microsoft Print to PDF"
-            hprinter = win32print.OpenPrinter(printer_name)
-            try:
-                hprinter = win32print.OpenPrinter(printer_name)
-                hprinter_data = {"pDatatype": "RAW"}
-                hprinter_handle = win32print.StartDocPrinter(hprinter, 1, ("Invoice", None, "RAW"))
-                win32print.StartPagePrinter(hprinter_handle)
-                dc = win32ui.CreateDC()
-                dc.CreatePrinterDC(printer_name)
-                dc.StartDoc("Invoice")
-                dc.StartPage()
-
-                dc.TextOut(100, 100, f"Item: {item_name}")
-                dc.TextOut(100, 120, f"Units Sold: {units}")
-                dc.TextOut(100, 140, f"Total Cost: {total_cost}")
-
-                dc.EndPage()
-                dc.EndDoc()
-                win32print.EndPagePrinter(hprinter_handle)
-                win32print.EndDocPrinter(hprinter_handle)
-                win32print.ClosePrinter(hprinter_handle)
-            finally:
-                win32print.ClosePrinter(hprinter)
+            pdf_name = "invoice.pdf"
+            c = canvas.Canvas(pdf_name, pagesize=letter)
+            c.drawString(100, 750, "Item: " + item_name)
+            c.drawString(100, 730, "Units Sold: " + str(units))
+            c.drawString(100, 710, "Total Cost: $" + str(total_cost))
+            c.save()
+            messagebox.showinfo("Success", f"Invoice created successfully! Filename: {pdf_name}")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to print invoice: {e}")
-
+            messagebox.showerror("Error", f"Failed to create invoice: {e}")
 
 # Initialize tkinter
-
 root = tk.Tk()
 app = InventoryManagementSystem(root)
 
